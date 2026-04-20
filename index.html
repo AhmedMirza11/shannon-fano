@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shannon-Fano Encoder</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e10;
+    --bg2: #16161a;
+    --bg3: #1e1e24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --text2: #9090a8;
+    --text3: #55556a;
+    --accent: #5b8dee;
+    --accent-bg: rgba(91,141,238,0.12);
+    --accent-text: #8cb4ff;
+    --success: #3ecf8e;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    border-bottom: 0.5px solid var(--border);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg2);
+  }
+
+  .logo {
+    width: 34px; height: 34px;
+    background: var(--accent-bg);
+    border: 0.5px solid var(--accent);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--accent-text);
+  }
+
+  .header-title { font-size: 15px; font-weight: 500; color: var(--text); }
+  .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+  .main {
+    width: 100%; max-width: 820px;
+    padding: 40px 24px 80px;
+  }
+
+  .hero { margin-bottom: 36px; }
+  .hero h1 { font-family: var(--mono); font-size: 28px; font-weight: 500; color: var(--text); letter-spacing: -0.5px; }
+  .hero p { font-size: 14px; color: var(--text2); margin-top: 8px; line-height: 1.6; }
+
+  .card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text3); font-weight: 500; margin-bottom: 16px;
+  }
+
+  .tab-row {
+    display: flex; gap: 2px;
+    background: var(--bg3);
+    border-radius: var(--radius);
+    padding: 3px;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 7px 16px; font-size: 13px;
+    font-family: var(--sans); cursor: pointer;
+    color: var(--text2); border: none; background: none;
+    border-radius: 6px; transition: all 0.15s; font-weight: 400;
+  }
+
+  .tab.active { background: var(--bg2); color: var(--text); font-weight: 500; border: 0.5px solid var(--border2); }
+
+  label {
+    display: block; font-size: 12px; color: var(--text2);
+    margin-bottom: 7px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  textarea, input[type=text] {
+    width: 100%; background: var(--bg3);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--mono); font-size: 13px;
+    padding: 10px 14px; line-height: 1.6;
+    transition: border 0.15s; resize: vertical;
+  }
+
+  textarea { min-height: 110px; }
+  input[type=text] { height: 40px; }
+
+  textarea:focus, input[type=text]:focus {
+    outline: none; border-color: var(--accent);
+  }
+
+  .hint { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
+  .input-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+
+  .btn-primary {
+    padding: 10px 24px; font-size: 13px;
+    font-family: var(--sans); font-weight: 500;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius); cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-secondary {
+    padding: 10px 20px; font-size: 13px;
+    font-family: var(--sans); font-weight: 400;
+    background: transparent; color: var(--text2);
+    border: 0.5px solid var(--border2); border-radius: var(--radius); cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: var(--bg3); }
+
+  .err { font-size: 13px; color: #f07070; margin-top: 10px; }
+
+  .results { display: none; }
+  .results.show { display: block; }
+
+  .metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+
+  .metric {
+    background: var(--bg3); border-radius: var(--radius);
+    padding: 14px 16px; border: 0.5px solid var(--border);
+  }
+  .metric .lbl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric .val { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--text); }
+
+  .table-wrap { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; font-size: 11px; color: var(--text3);
+    font-weight: 500; padding: 8px 12px;
+    border-bottom: 0.5px solid var(--border);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  td {
+    padding: 10px 12px; border-bottom: 0.5px solid var(--border);
+    font-family: var(--mono); color: var(--text); vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+
+  .code-pill {
+    display: inline-block;
+    background: var(--accent-bg); color: var(--accent-text);
+    padding: 3px 10px; border-radius: 4px; font-size: 13px;
+    letter-spacing: 1.5px; border: 0.5px solid rgba(91,141,238,0.25);
+  }
+
+  .bar-bg { background: var(--bg); border-radius: 3px; height: 5px; width: 100%; min-width: 80px; }
+  .bar-fill { height: 5px; border-radius: 3px; background: var(--accent); transition: width 0.4s; }
+
+  .output-box {
+    background: var(--bg3); border-radius: var(--radius);
+    padding: 14px 16px; font-family: var(--mono); font-size: 12px;
+    color: var(--text); word-break: break-all; line-height: 2;
+    max-height: 130px; overflow-y: auto;
+    border: 0.5px solid var(--border);
+  }
+
+  .output-box .sym { color: var(--accent-text); }
+  .output-box .arr { color: var(--text3); margin: 0 4px; }
+  .output-box .bits { color: var(--success); }
+
+  .section { margin-bottom: 0; }
+  .section + .section { margin-top: 20px; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 20px; }
+    .main { padding: 24px 16px 60px; }
+    .metric-row { grid-template-columns: 1fr 1fr; }
+    .metric-row .metric:last-child { grid-column: span 2; }
+    .hero h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SF</div>
+  <div>
+    <div class="header-title">Shannon-Fano Encoder</div>
+    <div class="header-sub">Lossless source coding simulation</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="hero">
+    <h1>Shannon-Fano Encoding</h1>
+    <p>Enter your symbols with probabilities (or derive them from text), provide a message to encode, and instantly see the codebook, step-by-step splits, and the binary-encoded output.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Input</div>
+
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('manual', this)">Manual input</button>
+      <button class="tab" onclick="switchTab('text', this)">From text</button>
+    </div>
+
+    <div id="tab-manual">
+      <div class="section">
+        <label>Symbols &amp; probabilities</label>
+        <textarea id="sym-input" placeholder="A 0.35&#10;B 0.20&#10;C 0.20&#10;D 0.15&#10;E 0.10">A 0.35
+B 0.20
+C 0.20
+D 0.15
+E 0.10</textarea>
+        <p class="hint">One symbol per line — format: <code>SYMBOL PROBABILITY</code>. Probabilities must sum to 1.</p>
+      </div>
+    </div>
+
+    <div id="tab-text" style="display:none;">
+      <div class="section">
+        <label>Input text</label>
+        <textarea id="text-input" placeholder="Type or paste any text here. Character frequencies are computed automatically."></textarea>
+        <p class="hint">Each unique character becomes a symbol. Probabilities are derived from frequency.</p>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top:16px;">
+      <label>Message to encode</label>
+      <input type="text" id="msg-input" placeholder="e.g. AABBC" value="AABBC" />
+      <p class="hint">Use only symbols defined above.</p>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="run()">Encode →</button>
+      <button class="btn-secondary" onclick="reset()">Reset</button>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div class="results" id="results">
+
+    <div class="metric-row">
+      <div class="metric"><div class="lbl">Encoded length</div><div class="val" id="m-bits">—</div></div>
+      <div class="metric"><div class="lbl">Avg bits / symbol</div><div class="val" id="m-avg">—</div></div>
+      <div class="metric"><div class="lbl">Entropy (bits)</div><div class="val" id="m-ent">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Codebook</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Probability</th>
+              <th>Distribution</th>
+              <th>Code</th>
+              <th>Length</th>
+            </tr>
+          </thead>
+          <tbody id="codebook-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Encoded output</div>
+      <div class="output-box" id="encoded-out"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Step-by-step splits</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Group</th>
+              <th>Split after</th>
+              <th>Left → 0</th>
+              <th>Right → 1</th>
+            </tr>
+          </thead>
+          <tbody id="steps-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let activeTab = 'manual';
+
+function switchTab(t, el) {
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-manual').style.display = t === 'manual' ? '' : 'none';
+  document.getElementById('tab-text').style.display = t === 'text' ? '' : 'none';
+}
+
+function shannonFano(symbols, codes, steps, prefix) {
+  if (symbols.length === 1) { codes[symbols[0].sym] = prefix || '0'; return; }
+  if (symbols.length === 0) return;
+  let total = symbols.reduce((s, x) => s + x.prob, 0);
+  let half = total / 2, cum = 0, best = 0, bestDiff = Infinity;
+  for (let i = 0; i < symbols.length - 1; i++) {
+    cum += symbols[i].prob;
+    let diff = Math.abs(cum - half);
+    if (diff < bestDiff) { bestDiff = diff; best = i; }
+  }
+  let left = symbols.slice(0, best + 1);
+  let right = symbols.slice(best + 1);
+  steps.push({
+    group: symbols.map(s => s.sym).join(', '),
+    split: symbols[best].sym,
+    left: left.map(s => s.sym).join(', '),
+    right: right.map(s => s.sym).join(', ')
+  });
+  shannonFano(left, codes, steps, prefix + '0');
+  shannonFano(right, codes, steps, prefix + '1');
+}
+
+function entropy(symbols) {
+  return -symbols.reduce((s, x) => x.prob > 0 ? s + x.prob * Math.log2(x.prob) : s, 0);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showErr(msg) { document.getElementById('err').textContent = msg; }
+
+function run() {
+  document.getElementById('err').textContent = '';
+  document.getElementById('results').classList.remove('show');
+
+  let symbols = [];
+
+  if (activeTab === 'manual') {
+    let lines = document.getElementById('sym-input').value.trim().split('\n');
+    for (let line of lines) {
+      let parts = line.trim().split(/\s+/);
+      if (parts.length < 2) continue;
+      let sym = parts[0], prob = parseFloat(parts[1]);
+      if (isNaN(prob) || prob <= 0) { showErr('Invalid probability for symbol: ' + sym); return; }
+      symbols.push({ sym, prob });
+    }
+  } else {
+    let text = document.getElementById('text-input').value;
+    if (!text.trim()) { showErr('Please enter some text.'); return; }
+    let freq = {};
+    for (let ch of text) { freq[ch] = (freq[ch] || 0) + 1; }
+    let total = text.length;
+    for (let [sym, cnt] of Object.entries(freq)) symbols.push({ sym, prob: cnt / total });
+  }
+
+  if (symbols.length < 2) { showErr('Need at least 2 symbols.'); return; }
+
+  let sum = symbols.reduce((s, x) => s + x.prob, 0);
+  if (Math.abs(sum - 1) > 0.02) { showErr('Probabilities must sum to 1 (got ' + sum.toFixed(4) + ').'); return; }
+
+  symbols.sort((a, b) => b.prob - a.prob);
+  let maxProb = symbols[0].prob;
+
+  let codes = {}, steps = [];
+  shannonFano(symbols, codes, steps, '');
+
+  let msg = document.getElementById('msg-input').value;
+  let validSyms = new Set(symbols.map(s => s.sym));
+  for (let ch of msg) {
+    if (!validSyms.has(ch)) { showErr('Message contains unknown symbol: "' + ch + '"'); return; }
+  }
+
+  let encoded = msg.split('').map(ch => codes[ch]).join('');
+  let avgBits = symbols.reduce((s, x) => s + x.prob * codes[x.sym].length, 0);
+  let ent = entropy(symbols);
+
+  document.getElementById('m-bits').textContent = encoded.length;
+  document.getElementById('m-avg').textContent = avgBits.toFixed(3);
+  document.getElementById('m-ent').textContent = ent.toFixed(3);
+
+  let tbody = document.getElementById('codebook-body');
+  tbody.innerHTML = '';
+  for (let s of symbols) {
+    let pct = (s.prob * 100).toFixed(1);
+    let barW = Math.round((s.prob / maxProb) * 100);
+    let tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escHtml(s.sym)}</td>
+      <td>${pct}%</td>
+      <td><div class="bar-bg"><div class="bar-fill" style="width:${barW}%"></div></div></td>
+      <td><span class="code-pill">${codes[s.sym]}</span></td>
+      <td>${codes[s.sym].length}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  let outDiv = document.getElementById('encoded-out');
+  let html = '';
+  for (let ch of msg) {
+    html += `<span class="sym">[${escHtml(ch)}]</span><span class="arr">→</span><span class="bits">${codes[ch]}</span> `;
+  }
+  outDiv.innerHTML = html.trim();
+
+  let sb = document.getElementById('steps-body');
+  sb.innerHTML = '';
+  steps.forEach((st, i) => {
+    let tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${escHtml(st.group)}</td>
+      <td>${escHtml(st.split)}</td>
+      <td>${escHtml(st.left)}</td>
+      <td>${escHtml(st.right)}</td>`;
+    sb.appendChild(tr);
+  });
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function reset() {
+  document.getElementById('sym-input').value = 'A 0.35\nB 0.20\nC 0.20\nD 0.15\nE 0.10';
+  document.getElementById('text-input').value = '';
+  document.getElementById('msg-input').value = 'AABBC';
+  document.getElementById('err').textContent = '';
+  document.getElementById('results').classList.remove('show');
+}
+</script>
+</body>
+</html>
